@@ -1,13 +1,13 @@
-# GPU-Accelerated Semantic Search with Dapr Workflows
+# Semantic Search with Dapr Workflows & SSE Streaming
 
-A demonstration of cross-language workflow orchestration using Dapr, showcasing how .NET workflows can call GPU-accelerated Python activities for semantic search.
+A demonstration of cross-language workflow orchestration and real-time streaming using Dapr. Shows how .NET workflows can orchestrate GPU-accelerated Python activities while streaming progress updates via Server-Sent Events (SSE) through Dapr service invocation.
 
 ## Key Features
 
 - **Cross-Language Workflows**: .NET orchestrates business logic, Python handles GPU-intensive ML
 - **GPU Acceleration**: Automatic device selection (MPS for Apple Silicon, CUDA for NVIDIA, CPU fallback)
 - **Type-Safe Integration**: Strongly-typed data models ensure reliable communication
-- **Production-Ready**: Lazy loading, batch processing, proper error handling
+- **Real-Time Streaming**: Server-Sent Events (SSE) for live workflow progress updates
 
 ## Quick Start
 
@@ -22,9 +22,19 @@ docker compose build
 docker compose up
 ```
 
-### Test the API
+### Test the System
 
-**Basic Request:**
+**Interactive Web UI (Recommended):**
+```bash
+# Open the web interface at http://localhost:8080
+# Features:
+# - Live SSE streaming with real-time updates
+# - Interactive Mermaid sequence diagram showing architecture flow
+# - Visual event tracking (scheduled, started, result, done)
+open http://localhost:8080
+```
+
+**Basic API Request:**
 ```bash
 curl -X POST http://localhost:5111/semantic-search \
   -H "Content-Type: application/json" \
@@ -38,17 +48,53 @@ curl -X POST http://localhost:5111/semantic-search \
   }'
 ```
 
-**Real-time Streaming (SSE):**
+**SSE Streaming Tests:**
 ```bash
-# Direct SSE endpoint
-./test-sse.sh
+# Run all SSE streaming test scenarios
+./test-sse-streaming.sh
 
-# Via SSE proxy (tests Dapr service invocation with streaming)
-./test-sse-proxy.sh
-
-# Browser UI
-open test-sse.html
+# Tests include:
+# 1. Direct .NET API streaming
+# 2. Direct Python proxy streaming
+# 3. Proxy → Dapr → .NET API (full chain)
+# 4. .NET → Dapr → .NET loopback
+# 5. Python → Dapr → Python loopback
 ```
+
+## Architecture
+
+The system uses a microservices architecture with Dapr for service-to-service communication:
+
+```
+Browser UI (port 8080)
+    ↓
+Python Proxy (port 8001)
+    ↓ (Dapr Service Invoke)
+Semantic Search API - .NET (port 5111)
+    ↓ (Workflow)
+Semantic Search Workflow - .NET
+    ↓ (Activities via Dapr)
+Python Activity Service (port 8000)
+    → Compute Embeddings Activity (GPU)
+    → Calculate Similarity Activity
+```
+
+**Key Components:**
+- **Web UI**: Nginx container serving interactive test interface with live SSE updates
+- **Python Proxy**: FastAPI service demonstrating SSE streaming through Dapr service invocation
+- **Semantic Search API**: .NET API with workflow orchestration and SSE endpoints
+- **Python Activity Service**: GPU-accelerated ML operations (sentence-transformers)
+- **Dapr Sidecars**: Handle service discovery, state management, and workflow scheduling
+
+**SSE Streaming Flow:**
+1. Browser initiates POST request to `/semantic-search/stream`
+2. Python proxy forwards request via Dapr service invocation
+3. .NET API schedules workflow and streams events:
+   - `scheduled`: Workflow queued
+   - `started`: Workflow execution begun
+   - `result`: Search results with similarity scores
+   - `done`: Stream complete
+4. All events flow back through the proxy to the browser in real-time
 
 ## Documentation
 
@@ -78,16 +124,19 @@ Comprehensive documentation including:
 │   │   │   └── embedding_activity.py
 │   │   └── main.py
 │   └── requirements.txt
-├── proxy/                       # SSE proxy service (tests Dapr streaming)
-│   ├── main.py                 # FastAPI proxy with Dapr invocation
+├── proxy/                       # SSE proxy service
+│   ├── main.py                 # FastAPI proxy with Dapr service invocation
 │   ├── requirements.txt
 │   └── Dockerfile
-├── components/                  # Dapr components
-├── dapr-config/                # Dapr configuration
-├── docker-compose.yml          # Docker Compose setup
-├── test-sse.html               # Browser-based SSE test UI
-├── test-sse.sh                 # Direct SSE test script
-└── test-sse-proxy.sh           # Proxied SSE test script
+├── web/                         # Web UI for SSE testing
+│   ├── index.html              # Interactive UI with Mermaid diagram
+│   ├── nginx.conf              # Nginx configuration
+│   └── Dockerfile              # Nginx container
+├── components/                  # Dapr components (state store, etc.)
+├── dapr-config/                # Dapr configuration files
+├── docker-compose.yml          # Complete service orchestration
+├── test-sse.html               # Standalone SSE test UI
+└── test-sse-streaming.sh       # Comprehensive SSE test suite
 ```
 
 ## License
