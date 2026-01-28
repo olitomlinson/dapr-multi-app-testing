@@ -89,6 +89,18 @@
                 padding: 10px;
             }
         }
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 10px;
+            background: white;
+            cursor: pointer;
+        }
+
         textarea {
             width: 100%;
             padding: 10px;
@@ -265,6 +277,17 @@ sequenceDiagram
         <h1>🔍 SSE Semantic Search</h1>
 
         <div>
+            <label for="model"><strong>Model:</strong></label>
+            <select id="model">
+                <option value="all-MiniLM-L6-v2" selected>all-MiniLM-L6-v2 (Fast, 384d)</option>
+                <option value="all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced, 384d)</option>
+                <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Best Quality, 768d)</option>
+                <option value="paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (Fastest, 384d)</option>
+                <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2 (Multilingual, 384d)</option>
+            </select>
+        </div>
+
+        <div>
             <label for="query"><strong>Query:</strong></label>
             <textarea id="query" rows="2" placeholder="Enter your search query...">How do I reset my password?</textarea>
         </div>
@@ -297,6 +320,7 @@ How to delete your account permanently</textarea>
             const query = document.getElementById('query').value.trim();
             const documentsText = document.getElementById('documents').value.trim();
             const documents = documentsText.split('\n').filter(d => d.trim());
+            const modelName = document.getElementById('model').value;
 
             if (!query || documents.length === 0) {
                 alert('Please provide a query and at least one document');
@@ -319,7 +343,7 @@ How to delete your account permanently</textarea>
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream',
                 },
-                body: JSON.stringify({ query, documents })
+                body: JSON.stringify({ query, documents, model_name: modelName })
             })
             .then(response => {
                 const reader = response.body.getReader();

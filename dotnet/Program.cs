@@ -65,7 +65,8 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
 
         var input = new SemanticSearchInput(
             Query: request.Query,
-            Documents: request.Documents
+            Documents: request.Documents,
+            ModelName: request.ModelName
         );
 
         // Start the workflow
@@ -80,7 +81,8 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
         {
             workflowId = instanceId,
             query = request.Query,
-            numDocuments = request.Documents.Count
+            numDocuments = request.Documents.Count,
+            modelName = request.ModelName
         });
 
         // Wait for workflow to actually start
@@ -170,7 +172,8 @@ app.MapPost("/semantic-search", async (DaprWorkflowClient workflowClient, Semant
 
         var input = new SemanticSearchInput(
             Query: request.Query,
-            Documents: request.Documents
+            Documents: request.Documents,
+            ModelName: request.ModelName
         );
 
         // Start the workflow
@@ -243,4 +246,8 @@ static async Task WriteSSEAsync(HttpResponse response, string eventType, object 
     await response.Body.FlushAsync();
 }
 
-public record SemanticSearchRequest(string Query, List<string> Documents);
+public record SemanticSearchRequest(
+    [property: System.Text.Json.Serialization.JsonPropertyName("query")] string Query,
+    [property: System.Text.Json.Serialization.JsonPropertyName("documents")] List<string> Documents,
+    [property: System.Text.Json.Serialization.JsonPropertyName("model_name")] string? ModelName = null
+);

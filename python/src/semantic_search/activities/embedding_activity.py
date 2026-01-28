@@ -12,42 +12,66 @@ from ..config import workflow_runtime
 
 logger = logging.getLogger(__name__)
 
-# Global model instance (lazy loaded)
-_model = None
-_model_name = "all-MiniLM-L6-v2"  # Fast, efficient sentence transformer
+# Global model cache (lazy loaded, supports multiple models)
+_models = {}
+_default_model_name = "all-MiniLM-L6-v2"  # Fast, efficient sentence transformer
 
 
-def _get_model():
-    """Lazy load the sentence transformer model."""
-    global _model
-    if _model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-            import torch
+def _get_model(model_name: Optional[str] = None):
+    """
+    Lazy load the sentence transformer model.
 
-            # Select best available device before loading
-            if torch.backends.mps.is_available():
-                device = "mps"  # Apple Silicon GPU (M1/M2/M3)
-                logger.info("Loading model on device: mps (Apple Silicon GPU)")
-            elif torch.cuda.is_available():
-                device = "cuda"  # NVIDIA GPU
-                logger.info(f"Loading model on device: cuda (NVIDIA GPU: {torch.cuda.get_device_name(0)})")
-            else:
-                device = "cpu"
-                logger.info("Loading model on device: cpu (no GPU available)")
+    Args:
+        model_name: Name of the model to load. If None, uses default.
 
-            # Load model directly on target device
-            logger.info(f"Loading sentence transformer model: {_model_name}")
-            _model = SentenceTransformer(_model_name, device=device)
-            logger.info(f"Model successfully loaded on {device}")
+    Returns:
+        Loaded SentenceTransformer model
+    """
+    global _models
 
-        except ImportError as e:
-            logger.error(f"Failed to import required libraries: {e}")
-            raise RuntimeError(
-                "sentence-transformers not installed. "
-                "Install with: pip install sentence-transformers torch"
-            )
-    return _model
+    # Use default if not specified
+    if not model_name:
+        model_name = _default_model_name
+
+    # Return cached model if already loaded
+    if model_name in _models:
+        logger.debug(f"Using cached model: {model_name}")
+        return _models[model_name]
+
+    # Load new model
+    try:
+        from sentence_transformers import SentenceTransformer
+        import torch
+
+        # Select best available device before loading
+        if torch.backends.mps.is_available():
+            device = "mps"  # Apple Silicon GPU (M1/M2/M3)
+            logger.info("Loading model on device: mps (Apple Silicon GPU)")
+        elif torch.cuda.is_available():
+            device = "cuda"  # NVIDIA GPU
+            logger.info(f"Loading model on device: cuda (NVIDIA GPU: {torch.cuda.get_device_name(0)})")
+        else:
+            device = "cpu"
+            logger.info("Loading model on device: cpu (no GPU available)")
+
+        # Load model directly on target device
+        logger.info(f"Loading sentence transformer model: {model_name}")
+        model = SentenceTransformer(model_name, device=device)
+        logger.info(f"Model {model_name} successfully loaded on {device}")
+
+        # Cache the model
+        _models[model_name] = model
+        return model
+
+    except ImportError as e:
+        logger.error(f"Failed to import required libraries: {e}")
+        raise RuntimeError(
+            "sentence-transformers not installed. "
+            "Install with: pip install sentence-transformers torch"
+        )
+    except Exception as e:
+        logger.error(f"Failed to load model {model_name}: {e}")
+        raise RuntimeError(f"Could not load model {model_name}: {str(e)}")
 
 
 @dataclass
@@ -55,6 +79,7 @@ class EmbeddingRequest:
     """Request for text embedding generation."""
     texts: List[str]
     normalize: bool = True
+    model_name: Optional[str] = None
 
 
 @dataclass
@@ -75,7 +100,8 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
 
     Args:
         _ctx: Activity context
-        input_data: Dictionary with 'texts' (list of strings) and optional 'normalize' (bool)
+        input_data: Dictionary with 'texts' (list of strings), optional 'normalize' (bool),
+                   and optional 'model_name' (str)
 
     Returns:
         EmbeddingResponse with embeddings and performance metrics
@@ -85,27 +111,31 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
     # Construct request from dict
     request = EmbeddingRequest(
         texts=input_data.get("texts", []),
-        normalize=input_data.get("normalize", True)
+        normalize=input_data.get("normalize", True),
+        model_name=input_data.get("model_name")
     )
+
+    # Determine which model to use
+    model_name = request.model_name or _default_model_name
 
     if not request.texts:
         logger.warning("Empty text list provided")
         return EmbeddingResponse(
             embeddings=[],
-            model_name=_model_name,
+            model_name=model_name,
             device="none",
             dimension=0,
             processing_time_ms=0.0,
             num_texts=0
         )
 
-    logger.info(f"Generating embeddings for {len(request.texts)} text(s)")
+    logger.info(f"Generating embeddings for {len(request.texts)} text(s) using model: {model_name}")
 
     try:
         import torch
 
-        # Get model
-        model = _get_model()
+        # Get model (will load if not cached)
+        model = _get_model(model_name)
 
         # Determine which device is being used
         if torch.backends.mps.is_available():
@@ -128,13 +158,13 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
         processing_time = (time.time() - start_time) * 1000  # Convert to ms
 
         logger.info(
-            f"Generated {len(embeddings_list)} embeddings "
+            f"Generated {len(embeddings_list)} embeddings using {model_name} "
             f"(dim={len(embeddings_list[0])}) in {processing_time:.2f}ms on {device}"
         )
 
         return EmbeddingResponse(
             embeddings=embeddings_list,
-            model_name=_model_name,
+            model_name=model_name,
             device=device,
             dimension=len(embeddings_list[0]) if embeddings_list else 0,
             processing_time_ms=processing_time,
@@ -144,53 +174,3 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
     except Exception as e:
         logger.error(f"Error generating embeddings: {e}")
         raise
-
-
-@workflow_runtime.activity(name='compute_similarity')
-def compute_similarity(_ctx, input_data: dict) -> dict:
-    """
-    Compute cosine similarity between two sets of embeddings.
-
-    Args:
-        _ctx: Activity context
-        input_data: Dictionary with 'embeddings1' and 'embeddings2' (lists of floats)
-
-    Returns:
-        Dictionary with similarity score
-    """
-    try:
-        import numpy as np
-
-        emb1 = np.array(input_data.get("embeddings1", []))
-        emb2 = np.array(input_data.get("embeddings2", []))
-
-        if emb1.size == 0 or emb2.size == 0:
-            return {"similarity": 0.0, "error": "Empty embeddings provided"}
-
-        # Compute cosine similarity
-        similarity = float(np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2)))
-
-        logger.info(f"Computed similarity: {similarity:.4f}")
-
-        return {
-            "similarity": similarity,
-            "interpretation": _interpret_similarity(similarity)
-        }
-
-    except Exception as e:
-        logger.error(f"Error computing similarity: {e}")
-        return {"similarity": 0.0, "error": str(e)}
-
-
-def _interpret_similarity(score: float) -> str:
-    """Provide human-readable interpretation of similarity score."""
-    if score >= 0.9:
-        return "very_similar"
-    elif score >= 0.7:
-        return "similar"
-    elif score >= 0.5:
-        return "somewhat_similar"
-    elif score >= 0.3:
-        return "slightly_similar"
-    else:
-        return "dissimilar"
