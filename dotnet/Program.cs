@@ -236,6 +236,55 @@ app.MapPost("/semantic-search", async (DaprWorkflowClient workflowClient, Semant
   .WithName("SemanticSearch")
   .WithTags("GPU-Accelerated Workflows");
 
+app.MapGet("/semantic-search/workflow/{workflowId}", async (string workflowId, DaprWorkflowClient workflowClient) =>
+{
+    try
+    {
+        app.Logger.LogInformation("Retrieving workflow results for: {WorkflowId}", workflowId);
+
+        var state = await workflowClient.GetWorkflowStateAsync(
+            instanceId: workflowId,
+            getInputsAndOutputs: true
+        );
+
+        if (state == null)
+        {
+            app.Logger.LogWarning("Workflow not found: {WorkflowId}", workflowId);
+            return Results.NotFound(new { message = $"Workflow '{workflowId}' not found" });
+        }
+
+        var response = new
+        {
+            workflowId,
+            status = state.RuntimeStatus.ToString(),
+            input = state.ReadInputAs<SemanticSearchInput>(),
+            output = state.RuntimeStatus == WorkflowRuntimeStatus.Completed
+                ? state.ReadOutputAs<SemanticSearchOutput>()
+                : null
+        };
+
+        app.Logger.LogInformation(
+            "Retrieved workflow: {WorkflowId}, Status: {Status}",
+            workflowId,
+            state.RuntimeStatus
+        );
+
+        return Results.Ok(response);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Error retrieving workflow results for: {WorkflowId}", workflowId);
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "Failed to retrieve workflow"
+        );
+    }
+}).Produces<object>()
+  .Produces(404)
+  .WithName("GetWorkflowResults")
+  .WithTags("GPU-Accelerated Workflows");
+
 app.Run();
 
 static async Task WriteSSEAsync(HttpResponse response, string eventType, object data)

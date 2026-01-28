@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SSE Semantic Search Demo</title>
+    <title>Semantic Search Demo</title>
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
         mermaid.initialize({
@@ -233,6 +233,10 @@
             border-color: #dc3545;
         }
 
+        .event.retrieved {
+            border-color: #6f42c1;
+        }
+
         .event-type {
             font-weight: bold;
             color: #666;
@@ -268,6 +272,64 @@
             .result-item {
                 padding: 4px;
                 font-size: 0.9em;
+            }
+        }
+
+        /* Tab styles */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            color: #666;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #0066cc;
+        }
+
+        .tab.active {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 767px) {
+            .tabs {
+                gap: 5px;
+            }
+
+            .tab {
+                padding: 10px 16px;
+                font-size: 14px;
             }
         }
     </style>
@@ -323,45 +385,79 @@ sequenceDiagram
     </div>
 
     <div class="container">
-        <h1>🔍 SSE Semantic Search</h1>
+        <h1>🔍 Semantic Search</h1>
 
-        <div>
-            <label for="model"><strong>Model:</strong></label>
-            <select id="model">
-                <option value="all-MiniLM-L6-v2" selected>all-MiniLM-L6-v2 (Fast, 384d)</option>
-                <option value="all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced, 384d)</option>
-                <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Best Quality, 768d)</option>
-                <option value="paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (Fastest, 384d)</option>
-                <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2 (Multilingual, 384d)</option>
-            </select>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('new-search')">New Search</button>
+            <button class="tab" onclick="switchTab('retrieve-results')">Retrieve Results</button>
         </div>
 
-        <div>
-            <label for="query"><strong>Query:</strong></label>
-            <textarea id="query" rows="2"
-                placeholder="Enter your search query...">How do I reset my password?</textarea>
-        </div>
+        <div id="new-search" class="tab-content active">
+            <div>
+                <label for="model"><strong>Model:</strong></label>
+                <select id="model">
+                    <option value="all-MiniLM-L6-v2" selected>all-MiniLM-L6-v2 (Fast, 384d)</option>
+                    <option value="all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced, 384d)</option>
+                    <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Best Quality, 768d)</option>
+                    <option value="paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (Fastest, 384d)</option>
+                    <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2 (Multilingual, 384d)</option>
+                </select>
+            </div>
 
-        <div>
-            <label for="documents"><strong>Documents (one per line):</strong></label>
-            <textarea id="documents" rows="6" placeholder="Enter documents to search...">Steps to update your account password and recover access
+            <div>
+                <label for="query"><strong>Query:</strong></label>
+                <textarea id="query" rows="2"
+                    placeholder="Enter your search query...">How do I reset my password?</textarea>
+            </div>
+
+            <div>
+                <label for="documents"><strong>Documents (one per line):</strong></label>
+                <textarea id="documents" rows="6" placeholder="Enter documents to search...">Steps to update your account password and recover access
 Installing the mobile application on your device
 Troubleshooting common login and authentication issues
 Guide to configuring notification preferences
 How to delete your account permanently</textarea>
+            </div>
+
+            <div class="button-group">
+                <button id="searchBtn" onclick="startSearch()">
+                    🔍 Search Documents
+                </button>
+                <button id="clearBtn" onclick="clearEvents()">Clear Results</button>
+            </div>
         </div>
 
-        <div class="button-group">
-            <button id="searchBtn" onclick="startSearch()">
-                🔍 Search with SSE Streaming
-            </button>
-            <button id="clearBtn" onclick="clearEvents()">Clear Events</button>
+        <div id="retrieve-results" class="tab-content">
+            <div>
+                <label for="workflowId"><strong>Workflow ID:</strong></label>
+                <input type="text" id="workflowId" placeholder="Enter workflow ID (e.g., semantic-search-4e948545)">
+            </div>
+
+            <div class="button-group">
+                <button id="retrieveBtn" onclick="retrieveResults()">
+                    📥 Retrieve Results
+                </button>
+                <button id="clearRetrieveBtn" onclick="clearEvents()">Clear Results</button>
+            </div>
         </div>
 
         <div id="events"></div>
     </div>
 
     <script>
+        function switchTab(tabName) {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Add active class to selected tab and content
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+
+            // Clear events when switching tabs
+            clearEvents();
+        }
+
         function startSearch() {
             performSearch();
         }
@@ -522,6 +618,68 @@ How to delete your account permanently</textarea>
             } catch (e) {
                 console.error('Error adding event to display:', e, type, data);
             }
+        }
+
+        function retrieveResults() {
+            const workflowId = document.getElementById('workflowId').value.trim();
+
+            if (!workflowId) {
+                alert('Please provide a workflow ID');
+                return;
+            }
+
+            // Disable button
+            const btn = document.getElementById('retrieveBtn');
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Retrieving...';
+
+            // Clear previous events
+            clearEvents();
+
+            // Fetch workflow results
+            fetch(`http://localhost:5111/semantic-search/workflow/${workflowId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Display workflow info
+                    addEvent('retrieved', {
+                        workflowId: data.workflowId,
+                        status: data.status,
+                        createdAt: data.createdAt
+                    });
+
+                    // If workflow is completed, show results
+                    if (data.status === 'Completed' && data.output) {
+                        addEvent('result', {
+                            query: data.output.query,
+                            results: data.output.results,
+                            metadata: {
+                                device: data.output.device,
+                                processingTimeMs: data.output.totalProcessingTimeMs,
+                                embeddingDimension: data.output.embeddingDimension
+                            }
+                        });
+                    } else {
+                        addEvent('status', {
+                            message: `Workflow status: ${data.status}`,
+                            customStatus: data.customStatus
+                        });
+                    }
+
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    addEvent('error', { message: error.message });
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                });
         }
 
         function clearEvents() {
