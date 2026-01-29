@@ -9,32 +9,32 @@
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
         mermaid.initialize({
             startOnLoad: true,
-            theme: 'default',
+            theme: 'dark',
             themeVariables: {
                 primaryColor: '#0066cc',
-                primaryTextColor: '#fff',
-                primaryBorderColor: '#0052a3',
-                lineColor: '#333',
-                textColor: '#333',
+                primaryTextColor: '#e0e0e0',
+                primaryBorderColor: '#0080ff',
+                lineColor: '#909090',
+                textColor: '#e0e0e0',
                 mainBkg: '#0066cc',
-                secondaryColor: '#f8f9fa',
-                tertiaryColor: '#e9ecef',
-                noteBkgColor: '#fff3cd',
-                noteTextColor: '#333',
+                secondaryColor: '#2d2d2d',
+                tertiaryColor: '#404040',
+                noteBkgColor: '#3a3000',
+                noteTextColor: '#ffc107',
                 noteBorderColor: '#ffc107',
-                actorBkg: '#e9ecef',
-                actorBorder: '#0066cc',
-                actorTextColor: '#333',
-                actorLineColor: '#333',
-                signalColor: '#333',
-                signalTextColor: '#333',
+                actorBkg: '#2d2d2d',
+                actorBorder: '#4da6ff',
+                actorTextColor: '#e0e0e0',
+                actorLineColor: '#909090',
+                signalColor: '#e0e0e0',
+                signalTextColor: '#e0e0e0',
                 labelBoxBkgColor: '#0066cc',
-                labelBoxBorderColor: '#0052a3',
-                labelTextColor: '#fff',
-                loopTextColor: '#333',
-                activationBkgColor: '#f8f9fa',
-                activationBorderColor: '#0066cc',
-                sequenceNumberColor: '#fff'
+                labelBoxBorderColor: '#0080ff',
+                labelTextColor: '#e0e0e0',
+                loopTextColor: '#e0e0e0',
+                activationBkgColor: '#1a1a1a',
+                activationBorderColor: '#4da6ff',
+                sequenceNumberColor: '#e0e0e0'
             }
         });
     </script>
@@ -43,39 +43,48 @@
             box-sizing: border-box;
         }
 
+        label {
+            color: #e0e0e0;
+        }
+
+        small {
+            color: #909090;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background: #f5f5f5;
+            background: #1a1a1a;
+            color: #e0e0e0;
         }
 
         .container {
-            background: white;
+            background: #2d2d2d;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         h1 {
-            color: #333;
+            color: #e0e0e0;
             margin-top: 0;
             font-size: clamp(1.5rem, 5vw, 2rem);
         }
 
         h2 {
-            color: #555;
+            color: #b0b0b0;
             font-size: clamp(1.2rem, 4vw, 1.5rem);
             margin-top: 20px;
             margin-bottom: 15px;
         }
 
         .diagram-container {
-            background: white;
+            background: #2d2d2d;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             margin-bottom: 20px;
             overflow-x: auto;
         }
@@ -102,24 +111,27 @@
         select {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #404040;
             border-radius: 4px;
             font-family: inherit;
             font-size: 14px;
             margin-bottom: 10px;
-            background: white;
+            background: #1a1a1a;
+            color: #e0e0e0;
             cursor: pointer;
         }
 
         textarea {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #404040;
             border-radius: 4px;
             font-family: inherit;
             font-size: 14px;
             margin-bottom: 10px;
             resize: vertical;
+            background: #1a1a1a;
+            color: #e0e0e0;
         }
 
         .button-group {
@@ -144,20 +156,53 @@
         }
 
         button:hover {
-            background: #0052a3;
+            background: #0080ff;
         }
 
         button:disabled {
-            background: #ccc;
+            background: #404040;
+            color: #808080;
             cursor: not-allowed;
         }
 
         #clearBtn {
-            background: #6c757d;
+            background: #505050;
         }
 
         #clearBtn:hover {
-            background: #5a6268;
+            background: #606060;
+        }
+
+        /* Polling indicator */
+        #pollingIndicator {
+            display: none;
+            background: #3a3000;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            align-items: center;
+            gap: 10px;
+            color: #ffc107;
+        }
+
+        #pollingIndicator.active {
+            display: flex;
+        }
+
+        .polling-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffc107;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* Tablet and larger screens */
@@ -188,11 +233,12 @@
         #events {
             margin-top: 20px;
             padding: 15px;
-            background: #f8f9fa;
+            background: #1a1a1a;
             border-radius: 4px;
             min-height: 200px;
             font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
             font-size: 13px;
+            border: 1px solid #404040;
         }
 
         @media (max-width: 767px) {
@@ -206,7 +252,7 @@
             margin: 8px 0;
             padding: 8px;
             border-left: 3px solid #0066cc;
-            background: white;
+            background: #2d2d2d;
         }
 
         .event.scheduled {
@@ -225,10 +271,6 @@
             border-color: #17a2b8;
         }
 
-        .event.done {
-            border-color: #28a745;
-        }
-
         .event.error {
             border-color: #dc3545;
         }
@@ -239,28 +281,29 @@
 
         .event-type {
             font-weight: bold;
-            color: #666;
+            color: #909090;
             text-transform: uppercase;
             font-size: 11px;
             margin-bottom: 4px;
         }
 
         .event-data {
-            color: #333;
+            color: #e0e0e0;
             white-space: pre-wrap;
         }
 
         .result-item {
             margin: 4px 0;
             padding: 6px;
-            background: #e9ecef;
+            background: #1a1a1a;
             border-radius: 3px;
             word-break: break-word;
+            border: 1px solid #404040;
         }
 
         .similarity {
             font-weight: bold;
-            color: #0066cc;
+            color: #4da6ff;
         }
 
         @media (max-width: 767px) {
@@ -280,13 +323,13 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-            border-bottom: 2px solid #e9ecef;
+            border-bottom: 2px solid #404040;
         }
 
         .tab {
             padding: 12px 24px;
             background: transparent;
-            color: #666;
+            color: #909090;
             border: none;
             border-bottom: 3px solid transparent;
             cursor: pointer;
@@ -296,12 +339,12 @@
         }
 
         .tab:hover {
-            color: #0066cc;
+            color: #4da6ff;
         }
 
         .tab.active {
-            color: #0066cc;
-            border-bottom-color: #0066cc;
+            color: #4da6ff;
+            border-bottom-color: #4da6ff;
         }
 
         .tab-content {
@@ -312,14 +355,17 @@
             display: block;
         }
 
-        input[type="text"] {
+        input[type="text"],
+        input[type="number"] {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #404040;
             border-radius: 4px;
             font-family: inherit;
             font-size: 14px;
             margin-bottom: 10px;
+            background: #1a1a1a;
+            color: #e0e0e0;
         }
 
         @media (max-width: 767px) {
@@ -394,17 +440,6 @@ sequenceDiagram
 
         <div id="new-search" class="tab-content active">
             <div>
-                <label for="model"><strong>Model:</strong></label>
-                <select id="model">
-                    <option value="all-MiniLM-L6-v2" selected>all-MiniLM-L6-v2 (Fast, 384d)</option>
-                    <option value="all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced, 384d)</option>
-                    <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Best Quality, 768d)</option>
-                    <option value="paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (Fastest, 384d)</option>
-                    <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2 (Multilingual, 384d)</option>
-                </select>
-            </div>
-
-            <div>
                 <label for="query"><strong>Query:</strong></label>
                 <textarea id="query" rows="2"
                     placeholder="Enter your search query...">How do I reset my password?</textarea>
@@ -418,6 +453,35 @@ Troubleshooting common login and authentication issues
 Guide to configuring notification preferences
 How to delete your account permanently</textarea>
             </div>
+
+            <!-- Collapsible Settings -->
+            <details class="dev-mode-panel" style="margin-bottom: 15px;">
+                <summary style="cursor: pointer; font-weight: 600; padding: 12px; background: #1a1a1a; border-radius: 4px; user-select: none; border: 1px solid #404040;">
+                    ⚙️ Settings
+                </summary>
+                <div style="padding: 15px; border: 1px solid #404040; border-top: none; border-radius: 0 0 4px 4px; background: #2d2d2d;">
+                    <div>
+                        <label for="model"><strong>Model:</strong></label>
+                        <select id="model">
+                            <option value="all-MiniLM-L6-v2" selected>all-MiniLM-L6-v2 (Fast, 384d)</option>
+                            <option value="all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced, 384d)</option>
+                            <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Best Quality, 768d)</option>
+                            <option value="paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (Fastest, 384d)</option>
+                            <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2 (Multilingual, 384d)</option>
+                        </select>
+                        <small style="display: block; color: #909090; margin-top: 5px;">
+                            Select the embedding model to use for semantic search.
+                        </small>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <label for="sandbagSeconds"><strong>Artificial Delay (seconds):</strong></label>
+                        <input type="number" id="sandbagSeconds" min="0" step="1" value="0" placeholder="0">
+                        <small style="display: block; color: #909090; margin-top: 5px;">
+                            Injects a delay before processing. Set to 10+ seconds to test interruptions by stopping services during the delay. Set to 0 to disable.
+                        </small>
+                    </div>
+                </div>
+            </details>
 
             <div class="button-group">
                 <button id="searchBtn" onclick="startSearch()">
@@ -441,10 +505,21 @@ How to delete your account permanently</textarea>
             </div>
         </div>
 
+        <div id="pollingIndicator">
+            <div class="polling-spinner"></div>
+            <span><strong>Long Polling Active:</strong> Checking workflow status every 2 seconds...</span>
+        </div>
+
         <div id="events"></div>
     </div>
 
     <script>
+        let currentWorkflowId = null;  // Store workflowId for fallback polling
+        let pollingInterval = null;    // Store polling interval ID
+        let streamTimeoutChecker = null;  // Interval for checking stream timeout
+        let lastEventTime = null;  // Timestamp of last received event
+        let currentAbortController = null;  // AbortController for current fetch
+
         function switchTab(tabName) {
             // Remove active class from all tabs and content
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -456,6 +531,12 @@ How to delete your account permanently</textarea>
 
             // Clear events when switching tabs
             clearEvents();
+
+            // Stop any ongoing polling
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
         }
 
         function startSearch() {
@@ -463,10 +544,25 @@ How to delete your account permanently</textarea>
         }
 
         function performSearch() {
+            // Reset workflow tracking
+            currentWorkflowId = null;
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            if (streamTimeoutChecker) {
+                clearInterval(streamTimeoutChecker);
+                streamTimeoutChecker = null;
+            }
+
+            // Get values from "New Search" tab
             const query = document.getElementById('query').value.trim();
             const documentsText = document.getElementById('documents').value.trim();
             const documents = documentsText.split('\n').filter(d => d.trim());
             const modelName = document.getElementById('model').value;
+
+            // Always check sandbag value from "Dev Mode" tab
+            const sandbagSeconds = parseInt(document.getElementById('sandbagSeconds').value) || 0;
 
             if (!query || documents.length === 0) {
                 alert('Please provide a query and at least one document');
@@ -482,6 +578,30 @@ How to delete your account permanently</textarea>
             // Clear previous events
             clearEvents();
 
+            // Build request body
+            const requestBody = { query, documents, model_name: modelName };
+            if (sandbagSeconds > 0) {
+                requestBody.sandbag_seconds = sandbagSeconds;
+                console.log(`[Dev Mode] ${sandbagSeconds}s artificial delay configured`);
+            }
+
+            // Create AbortController for this request
+            currentAbortController = new AbortController();
+            lastEventTime = Date.now();
+            console.log(`[Timeout Setup] Starting stream with timeout detection. Initial time: ${new Date(lastEventTime).toISOString()}`);
+
+            // Start timeout checker - if no events for 30 seconds, abort and fall back to polling
+            streamTimeoutChecker = setInterval(() => {
+                const timeSinceLastEvent = Date.now() - lastEventTime;
+                console.log(`[Timeout Checker] Time since last event: ${timeSinceLastEvent}ms (threshold: 30000ms)`);
+                if (timeSinceLastEvent >= 30000) {
+                    console.log(`[Timeout Checker] Stream timeout detected! Aborting stream and falling back to polling...`);
+                    clearInterval(streamTimeoutChecker);
+                    streamTimeoutChecker = null;
+                    currentAbortController.abort();
+                }
+            }, 5000); // Check every 5 seconds
+
             // Use fetch with streaming
             fetch('http://localhost:8001/semantic-search/stream', {
                 method: 'POST',
@@ -489,7 +609,8 @@ How to delete your account permanently</textarea>
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream',
                 },
-                body: JSON.stringify({ query, documents, model_name: modelName })
+                body: JSON.stringify(requestBody),
+                signal: currentAbortController.signal
             })
                 .then(response => {
                     const reader = response.body.getReader();
@@ -497,9 +618,24 @@ How to delete your account permanently</textarea>
                     let buffer = '';
                     let currentEvent = null;
                     let currentData = null;
+                    let receivedResultEvent = false;  // Track if we got the "result" SSE event
 
                     function processText({ done, value }) {
                         if (done) {
+                            // Clear timeout checker
+                            if (streamTimeoutChecker) {
+                                console.log('[Stream Complete] Stream ended from server');
+                                clearInterval(streamTimeoutChecker);
+                                streamTimeoutChecker = null;
+                            }
+
+                            // Check if stream ended prematurely (no "result" event received)
+                            if (!receivedResultEvent && currentWorkflowId) {
+                                console.log('[Stream Complete] Stream ended without "result" event - falling back to polling');
+                                startPolling(currentWorkflowId, btn, originalText);
+                                return;
+                            }
+
                             btn.disabled = false;
                             btn.innerHTML = originalText;
                             return;
@@ -517,6 +653,10 @@ How to delete your account permanently</textarea>
                                 // If we have a pending event, emit it before starting new one
                                 if (currentEvent !== null && currentData !== null) {
                                     handleEvent(currentEvent, currentData);
+                                    // Track if we received the "result" event
+                                    if (currentEvent === 'result') {
+                                        receivedResultEvent = true;
+                                    }
                                 }
                                 // Start new event
                                 currentEvent = trimmedLine.substring(6).trim();
@@ -536,6 +676,10 @@ How to delete your account permanently</textarea>
                                 // Empty line signals end of event
                                 if (currentEvent !== null && currentData !== null) {
                                     handleEvent(currentEvent, currentData);
+                                    // Track if we received the "result" event
+                                    if (currentEvent === 'result') {
+                                        receivedResultEvent = true;
+                                    }
                                     currentEvent = null;
                                     currentData = null;
                                 }
@@ -548,18 +692,131 @@ How to delete your account permanently</textarea>
                     return reader.read().then(processText);
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    addEvent('error', { message: error.message });
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
+                    console.error(`[Fetch Error] SSE streaming error: ${error.name} - ${error.message}`, error);
+
+                    // Clear timeout checker on error
+                    if (streamTimeoutChecker) {
+                        console.log('[Fetch Error] Clearing timeout checker');
+                        clearInterval(streamTimeoutChecker);
+                        streamTimeoutChecker = null;
+                    }
+
+                    // If we have a workflowId, fall back to long polling
+                    if (currentWorkflowId) {
+                        console.log(`[Fetch Error] Falling back to polling for workflow: ${currentWorkflowId}`);
+                        startPolling(currentWorkflowId, btn, originalText);
+                    } else {
+                        // No workflowId, can't poll - show error
+                        console.log('[Fetch Error] No workflowId available, cannot fall back to polling');
+                        addEvent('error', { message: `Stream failed: ${error.message}` });
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
                 });
         }
 
+        function startPolling(workflowId, btn, originalText) {
+            console.log(`Starting polling for workflow: ${workflowId}`);
+
+            // Show polling indicator
+            document.getElementById('pollingIndicator').classList.add('active');
+
+            let pollCount = 0;
+
+            const poll = () => {
+                pollCount++;
+                console.log(`[${new Date().toISOString()}] Polling attempt #${pollCount} for workflow: ${workflowId}`);
+                fetch(`http://localhost:8001/semantic-search/workflow/${workflowId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log(`Polling attempt #${pollCount} - status: ${data.status}`);
+
+                        // Check if workflow is complete
+                        if (data.status === 'Completed' && data.output) {
+                            // Stop polling
+                            if (pollingInterval) {
+                                clearInterval(pollingInterval);
+                                pollingInterval = null;
+                            }
+
+                            // Hide polling indicator
+                            document.getElementById('pollingIndicator').classList.remove('active');
+
+                            // Display results
+                            addEvent('result', {
+                                query: data.output.query,
+                                results: data.output.results,
+                                metadata: {
+                                    device: data.output.device,
+                                    processingTimeMs: data.output.totalProcessingTimeMs,
+                                    embeddingDimension: data.output.embeddingDimension
+                                }
+                            });
+
+                            // Re-enable button
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        } else if (data.status === 'Failed' || data.status === 'Terminated') {
+                            // Stop polling on failure
+                            if (pollingInterval) {
+                                clearInterval(pollingInterval);
+                                pollingInterval = null;
+                            }
+
+                            // Hide polling indicator
+                            document.getElementById('pollingIndicator').classList.remove('active');
+
+                            addEvent('error', {
+                                message: `Workflow ${data.status.toLowerCase()}`,
+                                status: data.status
+                            });
+
+                            // Re-enable button
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        } else {
+                            // Still running, show status update
+                            console.log(`Workflow still running: ${data.status}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`[${new Date().toISOString()}] Polling attempt #${pollCount} failed (will retry):`, error);
+                        // Don't stop polling on error - service might come back online
+                        // Error is logged to console; polling indicator banner shows polling is active
+                    });
+            };
+
+            // Poll immediately, then every 2 seconds
+            poll();
+            pollingInterval = setInterval(poll, 2000);
+        }
+
         function handleEvent(eventType, dataStr) {
-            console.log(`Received SSE event: ${eventType}, data length: ${dataStr.length}`);
+            // Update last event time whenever we receive an event
+            lastEventTime = Date.now();
+            console.log(`[Event Handler] Received SSE event: ${eventType}, data length: ${dataStr.length}, reset timer at ${new Date(lastEventTime).toISOString()}`);
+
+            // Heartbeat events are not displayed in UI, only logged
+            if (eventType === 'heartbeat') {
+                console.log(`[Heartbeat] Connection alive at ${new Date(lastEventTime).toISOString()}`);
+                return;
+            }
+
             try {
                 const data = JSON.parse(dataStr);
                 console.log(`Parsed event data:`, data);
+
+                // Store workflowId for fallback polling
+                if (eventType === 'scheduled' && data.workflowId) {
+                    currentWorkflowId = data.workflowId;
+                    console.log(`Stored workflowId for fallback: ${currentWorkflowId}`);
+                }
+
                 addEvent(eventType, data);
             } catch (e) {
                 console.error('Failed to parse event data:', e);
@@ -638,7 +895,7 @@ How to delete your account permanently</textarea>
             clearEvents();
 
             // Fetch workflow results
-            fetch(`http://localhost:5111/semantic-search/workflow/${workflowId}`)
+            fetch(`http://localhost:8001/semantic-search/workflow/${workflowId}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -684,6 +941,19 @@ How to delete your account permanently</textarea>
 
         function clearEvents() {
             document.getElementById('events').innerHTML = '';
+
+            // Stop any ongoing polling
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                console.log('Stopped polling on clear');
+            }
+
+            // Hide polling indicator
+            document.getElementById('pollingIndicator').classList.remove('active');
+
+            // Reset workflow tracking
+            currentWorkflowId = null;
         }
     </script>
 </body>

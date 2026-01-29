@@ -80,6 +80,7 @@ class EmbeddingRequest:
     texts: List[str]
     normalize: bool = True
     model_name: Optional[str] = None
+    sandbag_seconds: Optional[int] = None
 
 
 @dataclass
@@ -108,18 +109,36 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
     """
     start_time = time.time()
 
+    # Extract workflow and activity IDs for logging
+    workflow_id = getattr(_ctx, 'instance_id', 'unknown')
+    activity_id = getattr(_ctx, 'activity_id', getattr(_ctx, 'id', 'unknown'))
+
     # Construct request from dict
     request = EmbeddingRequest(
         texts=input_data.get("texts", []),
         normalize=input_data.get("normalize", True),
-        model_name=input_data.get("model_name")
+        model_name=input_data.get("model_name"),
+        sandbag_seconds=input_data.get("sandbag_seconds")
     )
+
+    # Inject artificial delay if sandbag_seconds is set (dev mode)
+    if request.sandbag_seconds and request.sandbag_seconds > 0:
+        logger.warning(
+            f"[workflow={workflow_id}, activity={activity_id}] "
+            f"🐌 SANDBAG MODE: Sleeping for {request.sandbag_seconds} seconds before processing "
+            f"(artificial delay for testing)"
+        )
+        time.sleep(request.sandbag_seconds)
+        logger.info(
+            f"[workflow={workflow_id}, activity={activity_id}] "
+            f"Sandbag delay complete, proceeding with embedding generation"
+        )
 
     # Determine which model to use
     model_name = request.model_name or _default_model_name
 
     if not request.texts:
-        logger.warning("Empty text list provided")
+        logger.warning(f"[workflow={workflow_id}, activity={activity_id}] Empty text list provided")
         return EmbeddingResponse(
             embeddings=[],
             model_name=model_name,
@@ -129,7 +148,10 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
             num_texts=0
         )
 
-    logger.info(f"Generating embeddings for {len(request.texts)} text(s) using model: {model_name}")
+    logger.info(
+        f"[workflow={workflow_id}, activity={activity_id}] "
+        f"Generating embeddings for {len(request.texts)} text(s) using model: {model_name}"
+    )
 
     try:
         import torch
@@ -158,6 +180,7 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
         processing_time = (time.time() - start_time) * 1000  # Convert to ms
 
         logger.info(
+            f"[workflow={workflow_id}, activity={activity_id}] "
             f"Generated {len(embeddings_list)} embeddings using {model_name} "
             f"(dim={len(embeddings_list[0])}) in {processing_time:.2f}ms on {device}"
         )
@@ -172,5 +195,5 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
         )
 
     except Exception as e:
-        logger.error(f"Error generating embeddings: {e}")
+        logger.error(f"[workflow={workflow_id}, activity={activity_id}] Error generating embeddings: {e}")
         raise

@@ -9,7 +9,8 @@ namespace WorkflowConsoleApp.Workflows
     public record SemanticSearchInput(
         string Query,
         List<string> Documents,
-        string? ModelName = null
+        string? ModelName = null,
+        int? SandbagSeconds = null
     );
 
     /// <summary>
@@ -53,7 +54,8 @@ namespace WorkflowConsoleApp.Workflows
             var queryEmbeddingRequest = new EmbeddingRequest(
                 Texts: new List<string> { input.Query },
                 Normalize: true,
-                ModelName: input.ModelName
+                ModelName: input.ModelName,
+                SandbagSeconds: input.SandbagSeconds
             );
 
             var queryEmbeddingResponse = await context.CallActivityAsync<EmbeddingResponse>(

@@ -43,10 +43,14 @@ if (app.Environment.IsDevelopment())
 
 app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowClient workflowClient, SemanticSearchRequest request) =>
 {
+    string workflowId = $"semantic-search-{Guid.NewGuid().ToString()[..8]}";
+
+    // Declare these outside try block so they're accessible in finally
+    CancellationTokenSource? linkedCts = null;
+    Task? heartbeatTask = null;
+
     try
     {
-        string workflowId = $"semantic-search-{Guid.NewGuid().ToString()[..8]}";
-
         app.Logger.LogInformation("Starting SSE semantic search workflow with query: '{Query}'", request.Query);
 
         // Set SSE headers
@@ -63,18 +67,25 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
         // Start the response to commit headers and prevent Content-Length calculation
         await context.Response.StartAsync();
 
+        // Create linked cancellation token that triggers on either client disconnect or manual cancellation
+        linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+        var cancellationToken = linkedCts.Token;
+
+        // Start background task to send heartbeats immediately
+        heartbeatTask = SendHeartbeatsAsync(context.Response, app.Logger, workflowId, cancellationToken);
+
         var input = new SemanticSearchInput(
             Query: request.Query,
             Documents: request.Documents,
-            ModelName: request.ModelName
+            ModelName: request.ModelName,
+            SandbagSeconds: request.SandbagSeconds
         );
 
         // Start the workflow
         var instanceId = await workflowClient.ScheduleNewWorkflowAsync(
-            name: nameof(SemanticSearchWorkflow),
-            instanceId: workflowId,
-            input: input
-        );
+        name: nameof(SemanticSearchWorkflow),
+        instanceId: workflowId,
+        input: input);
 
         // Send scheduled event
         await WriteSSEAsync(context.Response, "scheduled", new
@@ -86,7 +97,10 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
         });
 
         // Wait for workflow to actually start
-        await workflowClient.WaitForWorkflowStartAsync(instanceId);
+        await workflowClient.WaitForWorkflowStartAsync(
+            instanceId,
+            getInputsAndOutputs: true,
+            cancellationToken);
 
         // Send started event
         await WriteSSEAsync(context.Response, "started", new
@@ -94,14 +108,15 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
             workflowId = instanceId
         });
 
-        // Wait for workflow to complete (terminal state)
+        // Wait for workflow to complete or client to disconnect
         var state = await workflowClient.WaitForWorkflowCompletionAsync(
-            instanceId: instanceId,
-            getInputsAndOutputs: true
+            instanceId,
+            getInputsAndOutputs: true,
+            cancellationToken
         );
 
         // Check if workflow completed successfully
-        if (state.IsWorkflowCompleted && state.RuntimeStatus == WorkflowRuntimeStatus.Completed)
+        if (state.RuntimeStatus == WorkflowRuntimeStatus.Completed)
         {
             var result = state.ReadOutputAs<SemanticSearchOutput>();
 
@@ -132,8 +147,6 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
                         numDocuments = result.Results.Count
                     }
                 });
-
-                await WriteSSEAsync(context.Response, "done", new { });
             }
             else
             {
@@ -150,10 +163,40 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
             });
         }
     }
+    catch (OperationCanceledException)
+    {
+        // Client disconnected or request was cancelled
+        app.Logger.LogWarning("SSE stream cancelled for workflow {WorkflowId} (client disconnected)", workflowId);
+        // Don't try to write to response - connection is already closed
+    }
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "Error in SSE semantic search workflow");
-        await WriteSSEAsync(context.Response, "error", new { message = ex.Message });
+        try
+        {
+            await WriteSSEAsync(context.Response, "error", new { message = ex.Message });
+        }
+        catch
+        {
+            // Response stream may be closed, ignore write errors
+        }
+    }
+    finally
+    {
+        // Guarantee heartbeat task cleanup regardless of how the try block exits
+        if (linkedCts != null && heartbeatTask != null)
+        {
+            try
+            {
+                linkedCts.Cancel();
+                await heartbeatTask;
+                linkedCts.Dispose();
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogWarning(ex, "Error cleaning up heartbeat task for workflow {WorkflowId}", workflowId);
+            }
+        }
     }
 
     return Results.Empty;
@@ -173,7 +216,8 @@ app.MapPost("/semantic-search", async (DaprWorkflowClient workflowClient, Semant
         var input = new SemanticSearchInput(
             Query: request.Query,
             Documents: request.Documents,
-            ModelName: request.ModelName
+            ModelName: request.ModelName,
+            SandbagSeconds: request.SandbagSeconds
         );
 
         // Start the workflow
@@ -287,6 +331,36 @@ app.MapGet("/semantic-search/workflow/{workflowId}", async (string workflowId, D
 
 app.Run();
 
+static async Task SendHeartbeatsAsync(HttpResponse response, ILogger logger, string workflowId, CancellationToken cancellationToken)
+{
+    var heartbeatInterval = TimeSpan.FromSeconds(15);
+    try
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(heartbeatInterval, cancellationToken);
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await WriteSSEAsync(response, "heartbeat", new { timestamp = DateTime.UtcNow });
+                    logger.LogDebug("Sent SSE heartbeat for workflow {WorkflowId}", workflowId);
+                }
+                catch (Exception ex)
+                {
+                    // Connection lost - log and exit heartbeat loop
+                    logger.LogWarning(ex, "Failed to send heartbeat for workflow {WorkflowId} - connection likely closed", workflowId);
+                    break;
+                }
+            }
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        // Expected when workflow completes or client disconnects
+    }
+}
+
 static async Task WriteSSEAsync(HttpResponse response, string eventType, object data)
 {
     var json = System.Text.Json.JsonSerializer.Serialize(data);
@@ -298,5 +372,6 @@ static async Task WriteSSEAsync(HttpResponse response, string eventType, object 
 public record SemanticSearchRequest(
     [property: System.Text.Json.Serialization.JsonPropertyName("query")] string Query,
     [property: System.Text.Json.Serialization.JsonPropertyName("documents")] List<string> Documents,
-    [property: System.Text.Json.Serialization.JsonPropertyName("model_name")] string? ModelName = null
+    [property: System.Text.Json.Serialization.JsonPropertyName("model_name")] string? ModelName = null,
+    [property: System.Text.Json.Serialization.JsonPropertyName("sandbag_seconds")] int? SandbagSeconds = null
 );

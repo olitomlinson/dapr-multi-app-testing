@@ -4,7 +4,7 @@ SSE Proxy Service - Tests Dapr's ability to handle Server-Sent Events via servic
 import logging
 import os
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
@@ -36,7 +36,8 @@ async def root():
         "description": "Proxies SSE requests to test Dapr's streaming capabilities",
         "endpoints": {
             "/semantic-search/stream": "POST - Proxy SSE via Dapr service invocation (demonstrates buffering issue)",
-            "/semantic-search/stream-direct": "POST - Proxy SSE directly to API (bypasses Dapr, proves proxy works)"
+            "/semantic-search/stream-direct": "POST - Proxy SSE directly to API (bypasses Dapr, proves proxy works)",
+            "/semantic-search/workflow/{workflow_id}": "GET - Retrieve workflow results via Dapr (used for long polling fallback)"
         }
     }
 
@@ -143,6 +144,53 @@ async def proxy_semantic_search_stream(request: Request):
         return StreamingResponse(
             error_stream(),
             media_type="text/event-stream"
+        )
+
+
+@app.get("/semantic-search/workflow/{workflow_id}")
+async def proxy_get_workflow(workflow_id: str):
+    """
+    Proxies workflow retrieval requests to the API service via Dapr service invocation.
+    Used by the long polling fallback mechanism.
+    """
+    try:
+        logger.info(f"Proxying workflow retrieval request for: {workflow_id}")
+
+        # Construct Dapr service invocation URL
+        dapr_url = f"{DAPR_HTTP_ENDPOINT}/v1.0/invoke/api/method/semantic-search/workflow/{workflow_id}"
+
+        logger.info(f"Invoking API service via Dapr: {dapr_url}")
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(dapr_url)
+
+            logger.info(
+                f"Received response from Dapr: status={response.status_code}"
+            )
+
+            # Return the response with the same status code
+            return JSONResponse(
+                content=response.json(),
+                status_code=response.status_code
+            )
+
+    except httpx.TimeoutException as e:
+        logger.error(f"Timeout during Dapr invocation: {e}")
+        return JSONResponse(
+            content={"error": "Request timeout"},
+            status_code=504
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Request error during Dapr invocation: {e}")
+        return JSONResponse(
+            content={"error": f"Connection error: {str(e)}"},
+            status_code=502
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during Dapr invocation: {e}")
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
         )
 
 

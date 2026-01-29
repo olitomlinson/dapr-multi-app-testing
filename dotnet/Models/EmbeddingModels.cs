@@ -8,7 +8,8 @@ namespace WorkflowConsoleApp.Models
     public record EmbeddingRequest(
         [property: JsonPropertyName("texts")] List<string> Texts,
         [property: JsonPropertyName("normalize")] bool Normalize = true,
-        [property: JsonPropertyName("model_name")] string? ModelName = null
+        [property: JsonPropertyName("model_name")] string? ModelName = null,
+        [property: JsonPropertyName("sandbag_seconds")] int? SandbagSeconds = null
     );
 
     /// <summary>
