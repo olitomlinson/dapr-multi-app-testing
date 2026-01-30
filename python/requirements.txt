@@ -1,8 +1,8 @@
 fastapi>=0.104.0
 uvicorn>=0.24.0
 pydantic>=2.0.0
-dapr>=1.17.0rc2
-dapr-ext-workflow>=1.17.0rc2
+dapr>=1.17.0rc3
+dapr-ext-workflow>=1.17.0rc3
 sentence-transformers==2.7.0
 torch==2.2.2
 numpy<2.0,>=1.24.0

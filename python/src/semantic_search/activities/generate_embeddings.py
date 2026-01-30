@@ -110,8 +110,8 @@ def generate_embeddings(_ctx, input_data: dict) -> EmbeddingResponse:
     start_time = time.time()
 
     # Extract workflow and activity IDs for logging
-    workflow_id = getattr(_ctx, 'instance_id', 'unknown')
-    activity_id = getattr(_ctx, 'activity_id', getattr(_ctx, 'id', 'unknown'))
+    workflow_id = getattr(_ctx, 'workflow_id', 'unknown')
+    activity_id = getattr(_ctx, 'task_id', 'unknown')
 
     # Construct request from dict
     request = EmbeddingRequest(
