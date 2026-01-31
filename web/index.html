@@ -387,16 +387,16 @@
         <pre class="mermaid">
 sequenceDiagram
     participant UI as Browser UI
-    box lightblue Proxy Service (python)
+    box darkslateblue Proxy Service (python)
         participant Proxy as Python Proxy (8001)
         participant ProxyDapr as Proxy Dapr Sidecar
     end
-    box lightsteelblue API Service (dotnet)
+    box darkslategray API Service (dotnet)
         participant APIDapr as API Dapr Sidecar
         participant API as Semantic Search API (5111)
         participant WF as Semantic Search Workflow
     end
-    box lightyellow Semantic Search Service (python)
+    box darkolivegreen Semantic Search Service (python)
         participant Activity as Python Activity
     end
 
