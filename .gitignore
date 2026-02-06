@@ -46,7 +46,6 @@ dapr_scheduler/
 Thumbs.db
 
 # Environment
-.env
 *.log
 
 # Dependencies
