@@ -1,17 +1,17 @@
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: statestore-pg-v2
+  name: statestore-pg-v2-b
 spec:
   type: state.postgresql
   version: v2
   metadata:
     # Connection string
     - name: connectionString
-      value: "host=postgres-db user=postgres password=wO2VGDsMKR port=5432 database=postgres"
+      value: "host=postgres-b-db user=postgres password=wO2VGDsMKR port=5433 database=postgres"
     - name: actorStateStore
       value: "true"
     - name: tablePrefix
       value: v2_
 scopes:
-  - dotnet
+  - python

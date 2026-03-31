@@ -2,6 +2,7 @@ using Dapr.Workflow;
 using Dapr.Client;
 using WorkflowConsoleApp.Workflows;
 using WorkflowConsoleApp.Models;
+using WorkflowConsoleApp.Activities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,7 +10,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddDaprClient();
 builder.Services.AddDaprWorkflow(options =>
 {
-    options.RegisterWorkflow<SemanticSearchWorkflow>();
+    options.RegisterWorkflow<SemanticSearchWorkflow>("semantic-search-workflow");
+    options.RegisterWorkflow<SemanticSearchWorkflow2>("semantic-search-workflow-2");
+    options.RegisterActivity<ComputeSimilarityActivity>("compute_similarity");
+    options.RegisterActivity<GenerateEmbeddingsActivity>("generate_embeddings");
 });
 
 builder.Services.AddCors(options =>
@@ -82,8 +86,9 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
         );
 
         // Start the workflow
+        var workflowName = request.WorkflowName ?? "semantic-search-workflow";
         var instanceId = await workflowClient.ScheduleNewWorkflowAsync(
-        name: nameof(SemanticSearchWorkflow),
+        name: workflowName,
         instanceId: workflowId,
         input: input);
 
@@ -155,10 +160,11 @@ app.MapPost("/semantic-search/stream", async (HttpContext context, DaprWorkflowC
         }
         else
         {
+
             // Workflow failed or was terminated
             await WriteSSEAsync(context.Response, "error", new
             {
-                message = "Workflow failed",
+                message = "Workflow failed: " + state?.FailureDetails?.ErrorMessage,
                 runtimeStatus = state.RuntimeStatus.ToString()
             });
         }
@@ -221,8 +227,9 @@ app.MapPost("/semantic-search", async (DaprWorkflowClient workflowClient, Semant
         );
 
         // Start the workflow
+        var workflowName = request.WorkflowName ?? "semantic-search-workflow";
         var instanceId = await workflowClient.ScheduleNewWorkflowAsync(
-            name: nameof(SemanticSearchWorkflow),
+            name: workflowName,
             instanceId: workflowId,
             input: input
         );
@@ -373,5 +380,6 @@ public record SemanticSearchRequest(
     [property: System.Text.Json.Serialization.JsonPropertyName("query")] string Query,
     [property: System.Text.Json.Serialization.JsonPropertyName("documents")] List<string> Documents,
     [property: System.Text.Json.Serialization.JsonPropertyName("model_name")] string? ModelName = null,
-    [property: System.Text.Json.Serialization.JsonPropertyName("sandbag_seconds")] int? SandbagSeconds = null
+    [property: System.Text.Json.Serialization.JsonPropertyName("sandbag_seconds")] int? SandbagSeconds = null,
+    [property: System.Text.Json.Serialization.JsonPropertyName("workflow_name")] string? WorkflowName = null
 );

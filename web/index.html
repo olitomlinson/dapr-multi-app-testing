@@ -206,8 +206,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* Tablet and larger screens */
@@ -373,6 +378,11 @@
             color: #e0e0e0;
         }
 
+        input[type="radio"] {
+            accent-color: #0066cc;
+            cursor: pointer;
+        }
+
         @media (max-width: 767px) {
             .tabs {
                 gap: 5px;
@@ -392,24 +402,16 @@
         <pre class="mermaid">
 sequenceDiagram
     participant UI as Browser UI
-    box darkslateblue Proxy Service (python)
-        participant Proxy as Python Proxy (8001)
-        participant ProxyDapr as Proxy Dapr Sidecar
-    end
-    box darkslategray API Service (dotnet)
-        participant APIDapr as API Dapr Sidecar
-        participant API as Semantic Search API (5111)
+    box darkslategray dotnet
+        participant API as Semantic Search API
         participant WF as Semantic Search Workflow
     end
-    box darkolivegreen Semantic Search Service (python)
-        participant Activity as Python Activity
+    box darkolivegreen python
+        participant Activity as Workflow Activities
     end
 
-    UI->>Proxy: POST /semantic-search/stream
-    Note over UI,Proxy: SSE Stream Initiated
-    Proxy->>ProxyDapr: Dapr Service Invoke
-    ProxyDapr->>APIDapr: HTTP Service-to-Service
-    APIDapr->>API: Forward Request
+    UI->>API: POST /semantic-search/stream
+    Note over UI,API: SSE Stream Initiated
 
     API->>WF: Schedule Workflow
     Note over API: SSE Event: scheduled
@@ -419,19 +421,16 @@ sequenceDiagram
     Note over API: SSE Event: started
     API-->>UI: SSE: started
 
-    WF->>Activity: Compute Embeddings Activity
+    WF->>Activity: Generate Embeddings Activity
     Activity-->>WF: Embeddings Result
 
-    WF->>Activity: Calculate Similarity Activity
+    WF->>Activity: Compute Similarity Activity
     Activity-->>WF: Similarity Results
 
     WF-->>API: Workflow Complete
     Note over API: SSE Event: result
     API-->>UI: SSE: result with data
 
-    Note over API: SSE Event: done
-    API-->>UI: SSE: done
-    API-->>Proxy: Stream Complete
         </pre>
     </div>
 
@@ -459,20 +458,47 @@ Guide to configuring notification preferences
 How to delete your account permanently</textarea>
             </div>
 
+            <div>
+                <label for="workflowName"><strong>Workflow Name:</strong></label>
+                <input type="text" id="workflowName" value="semantic-search-workflow" placeholder="Enter workflow name">
+                <small style="display: block; color: #909090; margin-top: 5px;">
+                    Specify the name of the workflow to execute.
+                </small>
+            </div>
+
             <!-- Collapsible Settings -->
             <details class="dev-mode-panel" style="margin-bottom: 15px;">
-                <summary style="cursor: pointer; font-weight: 600; padding: 12px; background: #1a1a1a; border-radius: 4px; user-select: none; border: 1px solid #404040;">
+                <summary
+                    style="cursor: pointer; font-weight: 600; padding: 12px; background: #1a1a1a; border-radius: 4px; user-select: none; border: 1px solid #404040;">
                     ⚙️ Settings
                 </summary>
-                <div style="padding: 15px; border: 1px solid #404040; border-top: none; border-radius: 0 0 4px 4px; background: #2d2d2d;">
+                <div
+                    style="padding: 15px; border: 1px solid #404040; border-top: none; border-radius: 0 0 4px 4px; background: #2d2d2d;">
                     <div>
+                        <label><strong>Backend Service:</strong></label>
+                        <div style="margin-top: 8px; margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                                <input type="radio" name="backend" value="dotnet" checked style="margin-right: 8px;">
+                                .NET (localhost:5111)
+                            </label>
+                            <label style="display: block; cursor: pointer;">
+                                <input type="radio" name="backend" value="python" style="margin-right: 8px;">
+                                Python (localhost:8000)
+                            </label>
+                        </div>
+                        <small style="display: block; color: #909090; margin-top: 5px;">
+                            Select which backend service to send requests to.
+                        </small>
+                    </div>
+                    <div style="margin-top: 12px;">
                         <label for="model"><strong>Model:</strong></label>
                         <select id="model">
                             <option value="all-MiniLM-L6-v2" selected>all-MiniLM-L6-v2 (Fast, 384d)</option>
                             <option value="all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced, 384d)</option>
                             <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Best Quality, 768d)</option>
                             <option value="paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (Fastest, 384d)</option>
-                            <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2 (Multilingual, 384d)</option>
+                            <option value="paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual-MiniLM-L12-v2
+                                (Multilingual, 384d)</option>
                         </select>
                         <small style="display: block; color: #909090; margin-top: 5px;">
                             Select the embedding model to use for semantic search.
@@ -482,7 +508,8 @@ How to delete your account permanently</textarea>
                         <label for="sandbagSeconds"><strong>Artificial Delay (seconds):</strong></label>
                         <input type="number" id="sandbagSeconds" min="0" step="1" value="0" placeholder="0">
                         <small style="display: block; color: #909090; margin-top: 5px;">
-                            Injects a delay before processing. Set to 10+ seconds to test interruptions by stopping services during the delay. Set to 0 to disable.
+                            Injects a delay before processing. Set to 10+ seconds to test interruptions by stopping
+                            services during the delay. Set to 0 to disable.
                         </small>
                     </div>
                 </div>
@@ -525,6 +552,14 @@ How to delete your account permanently</textarea>
         let lastEventTime = null;  // Timestamp of last received event
         let currentAbortController = null;  // AbortController for current fetch
 
+        function getBackendUrl() {
+            const selectedBackend = document.querySelector('input[name="backend"]:checked').value;
+            if (selectedBackend === 'python') {
+                return 'http://localhost:8000';
+            }
+            return 'http://localhost:5111';
+        }
+
         function switchTab(tabName) {
             // Remove active class from all tabs and content
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -565,12 +600,13 @@ How to delete your account permanently</textarea>
             const documentsText = document.getElementById('documents').value.trim();
             const documents = documentsText.split('\n').filter(d => d.trim());
             const modelName = document.getElementById('model').value;
+            const workflowName = document.getElementById('workflowName').value.trim();
 
             // Always check sandbag value from "Dev Mode" tab
             const sandbagSeconds = parseInt(document.getElementById('sandbagSeconds').value) || 0;
 
-            if (!query || documents.length === 0) {
-                alert('Please provide a query and at least one document');
+            if (!query || documents.length === 0 || !workflowName) {
+                alert('Please provide a query, at least one document, and a workflow name');
                 return;
             }
 
@@ -584,7 +620,7 @@ How to delete your account permanently</textarea>
             clearEvents();
 
             // Build request body
-            const requestBody = { query, documents, model_name: modelName };
+            const requestBody = { query, documents, model_name: modelName, workflow_name: workflowName };
             if (sandbagSeconds > 0) {
                 requestBody.sandbag_seconds = sandbagSeconds;
                 console.log(`[Dev Mode] ${sandbagSeconds}s artificial delay configured`);
@@ -608,7 +644,8 @@ How to delete your account permanently</textarea>
             }, 5000); // Check every 5 seconds
 
             // Use fetch with streaming
-            fetch('http://localhost:8001/semantic-search/stream', {
+            const backendUrl = getBackendUrl();
+            fetch(`${backendUrl}/semantic-search/stream`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -731,7 +768,8 @@ How to delete your account permanently</textarea>
             const poll = () => {
                 pollCount++;
                 console.log(`[${new Date().toISOString()}] Polling attempt #${pollCount} for workflow: ${workflowId}`);
-                fetch(`http://localhost:8001/semantic-search/workflow/${workflowId}`)
+                const backendUrl = getBackendUrl();
+                fetch(`${backendUrl}/semantic-search/workflow/${workflowId}`)
                     .then(response => {
                         if (!response.ok) {
                             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -900,7 +938,8 @@ How to delete your account permanently</textarea>
             clearEvents();
 
             // Fetch workflow results
-            fetch(`http://localhost:8001/semantic-search/workflow/${workflowId}`)
+            const backendUrl = getBackendUrl();
+            fetch(`${backendUrl}/semantic-search/workflow/${workflowId}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

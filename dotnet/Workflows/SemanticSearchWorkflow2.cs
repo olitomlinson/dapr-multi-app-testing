@@ -5,42 +5,25 @@ using WorkflowConsoleApp.Models;
 
 namespace WorkflowConsoleApp.Workflows
 {
-    /// <summary>
-    /// Input payload for semantic search workflow.
-    /// </summary>
-    public record SemanticSearchInput(
-        string Query,
-        List<string> Documents,
-        string? ModelName = null,
-        int? SandbagSeconds = null
-    );
 
-    /// <summary>
-    /// Result for a single document's similarity to the query.
-    /// </summary>
-    public record DocumentScore(
-        string Document,
-        double Similarity,
-        string Interpretation
-    );
-
-    public record SemanticSearchOutput(
+    public record SemanticSearchOutput2(
         string Query,
         List<DocumentScore> Results,
         string Device,
         double TotalProcessingTimeMs,
-        int EmbeddingDimension
+        int EmbeddingDimension,
+        Approval Approval
     );
 
-    /// <summary>
-    /// Workflow demonstrating GPU-accelerated semantic search using Python activities.
-    ///
-    /// This workflow shows how .NET orchestrates business logic while delegating
-    /// GPU-intensive ML computations to Python via Dapr workflow activities.
-    /// </summary>
-    public class SemanticSearchWorkflow : Workflow<SemanticSearchInput, SemanticSearchOutput>
+    public record Approval(
+        bool Approved,
+        string Approver
+    );
+
+
+    public class SemanticSearchWorkflow2 : Workflow<SemanticSearchInput, SemanticSearchOutput2>
     {
-        public override async Task<SemanticSearchOutput> RunAsync(
+        public override async Task<SemanticSearchOutput2> RunAsync(
             WorkflowContext context,
             SemanticSearchInput input)
         {
@@ -129,12 +112,24 @@ namespace WorkflowConsoleApp.Workflows
                 $"(similarity: {results[0].Similarity:F4})"
             );
 
-            var output = new SemanticSearchOutput(
+            context.SetCustomStatus("Waiting for approval....");
+
+            var approval = await context.WaitForExternalEventAsync<Approval>("approval_event");
+            if (!approval.Approved)
+                throw new Exception($"not approved, by {approval.Approver}");
+
+            var output = new SemanticSearchOutput2(
                 Query: input.Query,
                 Results: results,
                 Device: documentsEmbeddingResponse.Device,
                 TotalProcessingTimeMs: totalTime,
-                EmbeddingDimension: documentsEmbeddingResponse.Dimension);
+                EmbeddingDimension: documentsEmbeddingResponse.Dimension,
+                Approval: approval);
+
+            context.SetCustomStatus(
+                $"Semantic search complete. Best match: '{results[0].Document}' " +
+                $"(similarity: {results[0].Similarity:F4})"
+            );
 
             return output;
         }

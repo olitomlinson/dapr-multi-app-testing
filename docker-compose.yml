@@ -12,7 +12,28 @@ services:
     networks:
       - network
     volumes:
-      - postgres-db-16-2:/var/lib/postgresql/data-16-2
+      - postgres-db-16-2a:/var/lib/postgresql/data-16-2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  postgres-b-db:
+    image: postgres:16.2-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=wO2VGDsMKR
+      - max_wal_size=2GB
+      - PGPORT=5433
+    ports:
+      - "5433:5433"
+    networks:
+      - network
+    volumes:
+      - postgres-db-16-2b:/var/lib/postgresql/data-16-2
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -22,10 +43,10 @@ services:
   ############################
   # API App + Dapr sidecar
   ############################
-  api:
+  dotnet:
     environment:
-      - DAPR_GRPC_ENDPOINT=http://api-dapr:50001
-      - DAPR_HTTP_ENDPOINT=http://api-dapr:3500
+      - DAPR_GRPC_ENDPOINT=http://dotnet-dapr:50001
+      - DAPR_HTTP_ENDPOINT=http://dotnet-dapr:3500
       - REGISTER_WORKFLOWS=true
       - REGISTER_ACTIVITIES=true
     build:
@@ -35,11 +56,11 @@ services:
       - "5111:5111"
       - "7776:7776"
     depends_on:
-      api-dapr:
+      dotnet-dapr:
         condition: service_started
     networks:
       - network
-  api-dapr:
+  dotnet-dapr:
     image: "${DAPR_RUNTIME_VERSION}"
     ports:
       - "3500:3500" # only important so we can reach the Dapr HTTP sidecar from the host for testing purposes
@@ -47,9 +68,9 @@ services:
       [
         "./daprd",
         "-app-id",
-        "api",
+        "dotnet",
         "-app-channel-address",
-        "api",
+        "dotnet",
         "-app-port",
         "5111",
         "-dapr-http-port",
@@ -83,10 +104,10 @@ services:
   ############################
   # Semantic Search App + Dapr sidecar
   ############################
-  semantic-search:
+  python:
     environment:
-      - DAPR_GRPC_ENDPOINT=http://semantic-search-dapr:50001
-      - DAPR_HTTP_ENDPOINT=http://semantic-search-dapr:3500
+      - DAPR_GRPC_ENDPOINT=http://python-dapr:50001
+      - DAPR_HTTP_ENDPOINT=http://python-dapr:3500
       - REGISTER_WORKFLOWS=false
       - REGISTER_ACTIVITIES=true
     build:
@@ -96,7 +117,7 @@ services:
       - "8000:8000"
     networks:
       - network
-  semantic-search-dapr:
+  python-dapr:
     image: "${DAPR_RUNTIME_VERSION}"
     ports:
       - "3501:3500" # Dapr HTTP port (different from workflow-a)
@@ -105,9 +126,9 @@ services:
       [
         "./daprd",
         "-app-id",
-        "semantic-search",
+        "python",
         "-app-channel-address",
-        "semantic-search",
+        "python",
         "-app-port",
         "8000",
         "-dapr-http-port",
@@ -145,38 +166,36 @@ services:
     networks:
       - network
 
+        ############################
+  # Semantic Search App + Dapr sidecar
   ############################
-  # SSE Proxy App + Dapr sidecar
-  ############################
-  sse-proxy:
+  python-2:
     environment:
-      - DAPR_GRPC_ENDPOINT=http://sse-proxy-dapr:50001
-      - DAPR_HTTP_ENDPOINT=http://sse-proxy-dapr:3500
-      - API_DIRECT_ENDPOINT=http://api:5111
+      - DAPR_GRPC_ENDPOINT=http://python-2-dapr:50001
+      - DAPR_HTTP_ENDPOINT=http://python-2-dapr:3500
+      - REGISTER_WORKFLOWS=false
+      - REGISTER_ACTIVITIES=true
     build:
-      context: ./proxy
+      context: ./python
       dockerfile: Dockerfile
     ports:
-      - "8001:8001"
-    depends_on:
-      sse-proxy-dapr:
-        condition: service_started
+      - "8001:8000"
     networks:
       - network
-  sse-proxy-dapr:
+  python-2-dapr:
     image: "${DAPR_RUNTIME_VERSION}"
     ports:
-      - "3502:3500" # Dapr HTTP port
-      - "50003:50001" # Dapr gRPC port
+      - "3502:3500" # Dapr HTTP port (different from workflow-a)
+      - "50003:50001" # Dapr gRPC port (different from workflow-a)
     command:
       [
         "./daprd",
         "-app-id",
-        "sse-proxy",
+        "python",
         "-app-channel-address",
-        "sse-proxy",
+        "python",
         "-app-port",
-        "8001",
+        "8000",
         "-dapr-http-port",
         "3500",
         "-dapr-grpc-port",
@@ -202,6 +221,13 @@ services:
         condition: service_started
       scheduler-0:
         condition: service_started
+    healthcheck:
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:3500/v1.0/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     networks:
       - network
 
@@ -269,6 +295,29 @@ services:
     networks:
       - network
 
+  ############################
+  # pgAdmin (Database Management UI)
+  ############################
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./dapr/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./dapr/pgadmin/pgpassfile:/tmp/pgpassfile:ro
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - network
+
 networks:
   network:
     driver: bridge
@@ -276,5 +325,9 @@ networks:
 volumes:
   db-data:
     driver: local
-  postgres-db-16-2:
+  postgres-db-16-2a:
+    driver: local
+  postgres-db-16-2b:
+    driver: local
+  pgadmin-data:
     driver: local

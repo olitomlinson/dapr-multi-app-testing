@@ -5,6 +5,7 @@ This activity demonstrates using Python for GPU-intensive ML workloads
 while .NET orchestrates the business logic via Dapr workflows.
 """
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import List, Optional
@@ -14,12 +15,13 @@ logger = logging.getLogger(__name__)
 
 # Global model cache (lazy loaded, supports multiple models)
 _models = {}
+_models_lock = threading.Lock()
 _default_model_name = "all-MiniLM-L6-v2"  # Fast, efficient sentence transformer
 
 
 def _get_model(model_name: Optional[str] = None):
     """
-    Lazy load the sentence transformer model.
+    Lazy load the sentence transformer model (thread-safe).
 
     Args:
         model_name: Name of the model to load. If None, uses default.
@@ -33,45 +35,47 @@ def _get_model(model_name: Optional[str] = None):
     if not model_name:
         model_name = _default_model_name
 
-    # Return cached model if already loaded
-    if model_name in _models:
-        logger.debug(f"Using cached model: {model_name}")
-        return _models[model_name]
+    # Thread-safe cache access
+    with _models_lock:
+        # Return cached model if already loaded
+        if model_name in _models:
+            logger.debug(f"Using cached model: {model_name}")
+            return _models[model_name]
 
-    # Load new model
-    try:
-        from sentence_transformers import SentenceTransformer
-        import torch
+        # Load new model (still holding lock to prevent duplicate loads)
+        try:
+            from sentence_transformers import SentenceTransformer
+            import torch
 
-        # Select best available device before loading
-        if torch.backends.mps.is_available():
-            device = "mps"  # Apple Silicon GPU (M1/M2/M3)
-            logger.info("Loading model on device: mps (Apple Silicon GPU)")
-        elif torch.cuda.is_available():
-            device = "cuda"  # NVIDIA GPU
-            logger.info(f"Loading model on device: cuda (NVIDIA GPU: {torch.cuda.get_device_name(0)})")
-        else:
-            device = "cpu"
-            logger.info("Loading model on device: cpu (no GPU available)")
+            # Select best available device before loading
+            if torch.backends.mps.is_available():
+                device = "mps"  # Apple Silicon GPU (M1/M2/M3)
+                logger.info("Loading model on device: mps (Apple Silicon GPU)")
+            elif torch.cuda.is_available():
+                device = "cuda"  # NVIDIA GPU
+                logger.info(f"Loading model on device: cuda (NVIDIA GPU: {torch.cuda.get_device_name(0)})")
+            else:
+                device = "cpu"
+                logger.info("Loading model on device: cpu (no GPU available)")
 
-        # Load model directly on target device
-        logger.info(f"Loading sentence transformer model: {model_name}")
-        model = SentenceTransformer(model_name, device=device)
-        logger.info(f"Model {model_name} successfully loaded on {device}")
+            # Load model directly on target device
+            logger.info(f"Loading sentence transformer model: {model_name}")
+            model = SentenceTransformer(model_name, device=device)
+            logger.info(f"Model {model_name} successfully loaded on {device}")
 
-        # Cache the model
-        _models[model_name] = model
-        return model
+            # Cache the model
+            _models[model_name] = model
+            return model
 
-    except ImportError as e:
-        logger.error(f"Failed to import required libraries: {e}")
-        raise RuntimeError(
-            "sentence-transformers not installed. "
-            "Install with: pip install sentence-transformers torch"
-        )
-    except Exception as e:
-        logger.error(f"Failed to load model {model_name}: {e}")
-        raise RuntimeError(f"Could not load model {model_name}: {str(e)}")
+        except ImportError as e:
+            logger.error(f"Failed to import required libraries: {e}")
+            raise RuntimeError(
+                "sentence-transformers not installed. "
+                "Install with: pip install sentence-transformers torch"
+            )
+        except Exception as e:
+            logger.error(f"Failed to load model {model_name}: {e}")
+            raise RuntimeError(f"Could not load model {model_name}: {str(e)}")
 
 
 @dataclass
